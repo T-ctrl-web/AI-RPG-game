@@ -11,10 +11,37 @@ def render_map(engine):
 
     st.markdown("# 🗺️ 语法森林 · 第一章")
     st.markdown("> _穿越六大关卡，击败 BOSS 缩进蛇妖，收集「语法晶石」_")
+
+    # 顶部：进度概览 + 继续按钮
+    done = engine.completed_count(p)
+    total = engine.total_levels()
+    st.progress(done / total, text=f"通关进度：{done}/{total}")
+
+    # 继续冒险：跳到下一个未通关的已解锁关卡
+    next_idx = _find_next_unlocked_uncompleted(engine, p)
+    if next_idx is not None:
+        next_level = engine.get_level(next_idx)
+        if st.button(
+            f"▶ 继续冒险：{next_level['scene']}（{next_level['id']}）",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state.current_level_idx = next_idx
+            st.session_state.battle_result = None
+            st.rerun()
+
     st.markdown("---")
 
     for idx, level in enumerate(engine.levels):
         _render_level_card(engine, level, idx, p)
+
+
+def _find_next_unlocked_uncompleted(engine, player):
+    """找到下一个已解锁但未通关的关卡索引"""
+    for idx, level in enumerate(engine.levels):
+        if not player.has_completed(level["id"]) and not engine.is_locked(idx, player):
+            return idx
+    return None
 
 
 def _render_level_card(engine, level, idx, player):

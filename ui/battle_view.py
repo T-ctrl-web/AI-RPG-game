@@ -17,7 +17,8 @@ def init_session():
         from core.player import load_player
         st.session_state.player = load_player()
     if "current_level_idx" not in st.session_state:
-        st.session_state.current_level_idx = 0
+        # 默认显示地图（-1），玩家可自由选择已解锁/已通关的关卡
+        st.session_state.current_level_idx = -1
     if "battle_result" not in st.session_state:
         st.session_state.battle_result = None
     if "selected_mode" not in st.session_state:
