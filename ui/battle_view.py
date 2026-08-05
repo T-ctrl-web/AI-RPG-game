@@ -16,6 +16,8 @@ def init_session():
     if "player" not in st.session_state:
         from core.player import load_player
         st.session_state.player = load_player()
+    if "current_chapter" not in st.session_state:
+        st.session_state.current_chapter = 1
     if "current_level_idx" not in st.session_state:
         # 默认显示地图（-1），玩家可自由选择已解锁/已通关的关卡
         st.session_state.current_level_idx = -1

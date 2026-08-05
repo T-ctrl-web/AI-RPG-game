@@ -42,7 +42,12 @@ def render_sidebar(engine):
         st.markdown("### 📊 进度 & 关卡跳转")
         total = engine.total_levels()
         done = engine.completed_count(p)
-        st.progress(done / total, text=f"第一章 {done}/{total} 关")
+        st.progress(
+            done / total,
+            text=f"{engine.chapter_title()} {done}/{total} 关"
+        )
+        # 总进度
+        st.caption(f"📊 总进度：{engine.total_progress(p)}")
 
         # 可点击的关卡列表
         st.markdown("**🗺️ 选择关卡：**")
@@ -61,6 +66,7 @@ def render_sidebar(engine):
 
             st.session_state.player = default_player()
             st.session_state.player.save()
+            st.session_state.current_chapter = 1
             st.session_state.current_level_idx = -1
             st.session_state.battle_result = None
             st.rerun()
