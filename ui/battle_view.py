@@ -1,16 +1,20 @@
 """
 战斗界面：编程题挑战
+===================
+代码编辑器使用 streamlit-ace（VS Code 同款内核），
+支持 Python 语法高亮、自动缩进、行号、圆润主题。
 """
 
 import streamlit as st
+from streamlit_ace import st_ace
 
 from core.battle import check_answer
-from core.player import load_player, default_player
 
 
 def init_session():
     """初始化会话状态"""
     if "player" not in st.session_state:
+        from core.player import load_player
         st.session_state.player = load_player()
     if "current_level_idx" not in st.session_state:
         st.session_state.current_level_idx = 0
@@ -65,23 +69,40 @@ def render_battle(engine, level_idx):
     st.markdown(f"**当前难度**：{mode_labels[st.session_state.selected_mode]}")
     st.markdown(f"**任务**：{mode['instruction']}")
 
-    # ---------- 代码模板与输入 ----------
+    # ---------- 代码模板与输入（Ace Editor） ----------
     if st.session_state.selected_mode == "teach":
         st.info(f"📝 参考代码：\n```python\n{mode['template']}\n```")
 
-    default_code = mode.get("template", "") if st.session_state.selected_mode == "fill" else ""
-    user_code = st.text_area(
-        "💻 在这里输入你的代码：",
+    # 根据难度设置初始代码
+    if st.session_state.selected_mode == "fill":
+        default_code = mode.get("template", "")
+    elif st.session_state.selected_mode == "teach":
+        default_code = mode.get("template", "")
+    else:
+        default_code = ""
+
+    # Ace Editor：专业代码编辑器（VS Code 内核）
+    user_code = st_ace(
         value=default_code,
-        height=180,
-        key=f"code_area_{level['id']}_{st.session_state.selected_mode}",
+        language="python",
+        theme="dracula",
+        keybinding="vscode",
+        key=f"ace_{level['id']}_{st.session_state.selected_mode}",
+        height=220,
+        show_gutter=True,
+        show_print_margin=False,
+        wrap=True,
+        font_size=14,
+        tab_size=4,
+        auto_update=True,
+        readonly=False,
     )
 
     # ---------- 按钮区 ----------
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         if st.button("⚔️ 发起攻击（运行代码）", type="primary", use_container_width=True):
-            if not user_code.strip():
+            if not user_code or not user_code.strip():
                 st.warning("请先输入代码！")
             else:
                 _handle_attack(engine, level, mode, user_code)
@@ -110,7 +131,6 @@ def _handle_attack(engine, level, mode, user_code):
     }
 
     if is_correct:
-        # 结算奖励
         gained = engine.settle_reward(level, st.session_state.selected_mode, st.session_state.player)
         st.session_state.last_gained_exp = gained
     st.rerun()
@@ -129,7 +149,6 @@ def _render_battle_result(engine, level, mode):
         gained = st.session_state.get("last_gained_exp", level["reward_exp"])
         st.markdown(f"🎁 获得经验 +{gained}，获得 {level['reward_item']}")
 
-        # 通关后选项
         col_a, col_b = st.columns(2)
         with col_a:
             next_idx = engine.next_level_index(st.session_state.current_level_idx)
