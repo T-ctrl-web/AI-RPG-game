@@ -1,18 +1,22 @@
 """
 战斗界面：编程题挑战
 ===================
-代码编辑器使用 Streamlit 原生 st.code_editor（1.41+ 官方组件），
-支持 Python 语法高亮、行号、Tab 缩进、VS Code 键位，
-不依赖任何第三方组件，从根本上避免 removeChild 爆红问题。
+代码编辑器做了「全版本兼容」：
+  · 如果 Streamlit >= 1.41（有原生 st.code_editor）：自动用它，带语法高亮/行号
+  · 如果 Streamlit 版本较低：自动回退到 st.text_area + 旁边 st.code 高亮预览
+  · 两者都不依赖第三方组件，从根本上避免 removeChild 爆红问题。
 """
 
 import streamlit as st
 
 from core.battle import check_answer
 
-# 代码编辑器的全局唯一 key —— 永不变化
-# 官方组件的销毁逻辑稳定，单实例全局复用，永远不会触发第三方组件的 DOM 时序 bug
+# 代码编辑器的全局唯一 key —— 永不变化（两种底层实现共用同一个 key，保证状态一致）
+# 官方组件销毁逻辑稳定，单实例全局复用，不会触发第三方组件的 DOM 时序 bug
 ACE_KEY = "code_editor_main"
+
+# 自动探测当前 streamlit 版本是否支持原生 st.code_editor
+_HAS_CODE_EDITOR = hasattr(st, "code_editor") and callable(getattr(st, "code_editor", None))
 
 
 def init_session():
@@ -36,6 +40,40 @@ def init_session():
     if "_last_editor_ctx" not in st.session_state:
         # 上次显示编辑器时的上下文（level_id:mode），用于判断是否需要刷新编辑器内容
         st.session_state._last_editor_ctx = None
+
+
+def _render_code_editor(intended_code):
+    """统一的代码编辑区渲染：自动选择可用实现，并始终返回 user_code 字符串。
+
+    关键：无论用哪种实现，widget 的 key 都是 ACE_KEY，内容都以
+    st.session_state[ACE_KEY] 为准。外部已经在调用本函数前把
+    st.session_state[ACE_KEY] = intended_code 写好了，这里只需渲染。
+    """
+    if _HAS_CODE_EDITOR:
+        # Streamlit >= 1.41 原生代码编辑器（带 Python 语法高亮 + 行号）
+        return st.code_editor(
+            value=intended_code,
+            language="python",
+            theme="dark",
+            key=ACE_KEY,
+            height=260,
+            line_numbers=True,
+            show_copy_button=True,
+            wrap=True,
+            tab_size=4,
+        )
+    else:
+        # 旧版 Streamlit 回退方案：st.text_area 做输入 + 旁边 st.code 实时高亮预览
+        code = st.text_area(
+            "✏️ 代码编辑区（Tab 缩进，Ctrl+Enter 换行）",
+            value=intended_code,
+            key=ACE_KEY,
+            height=260,
+            placeholder="# 在这里写你的 Python 代码...",
+        )
+        st.caption("💡 语法高亮预览：")
+        st.code(code if code is not None else "", language="python")
+        return code
 
 
 def render_battle(engine, level_idx):
@@ -124,19 +162,8 @@ def render_battle(engine, level_idx):
         st.session_state[editor_key] = intended_code
         st.session_state._last_editor_ctx = ctx
 
-    # ---------- 代码编辑器（Streamlit 1.41+ 原生，官方组件）----------
-    # 不销毁实例（key 全局固定）→ 彻底避免第三方组件的 removeChild 爆红
-    user_code = st.code_editor(
-        value=intended_code,
-        language="python",
-        theme="dark",
-        key=editor_key,
-        height=260,
-        line_numbers=True,
-        show_copy_button=True,
-        wrap=True,
-        tab_size=4,
-    )
+    # ---------- 代码编辑区（自动兼容任意 Streamlit 版本）----------
+    user_code = _render_code_editor(intended_code)
 
     # ---------- 按钮区 ----------
     col1, col2, col3 = st.columns([2, 1, 1])
